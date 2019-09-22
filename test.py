@@ -14,8 +14,8 @@ tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
 xlnet_config = XLNetConfig()
 max_seq_len = 128
 
-reader = MNLIDatasetReader(train_path=train_file,
-                           val_path=val_file,
+reader = MNLIDatasetReader(train_file=train_file,
+                           val_file=val_file,
                            test_path=test_file,
                            max_seq_len=max_seq_len,
                            tokenizer=tokenizer)

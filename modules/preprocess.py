@@ -28,14 +28,13 @@ class XLNetInputFeatures:
 
 class MNLIDatasetReader:
 
-    def __init__(self, train_path, val_path, test_path, tokenizer, max_seq_len):
-        self.train_df = pd.read_csv(train_path, sep='\t')
-        # self.val_df = pd.read_csv(val_path, sep='\t')
-        # self.test_df = pd.read_csv(test_path, sep='\t')
+    def __init__(self, train_file, val_file, tokenizer, max_seq_len):
+        self.train_df = pd.read_csv(train_file, sep='\t')
+        self.val_df = pd.read_csv(val_file, sep='\t')
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
 
-    def _pad_or_truncate(self, prem_tokens, hyp_tokens, nr_special_tokens=3):
+    def _truncate(self, prem_tokens, hyp_tokens, nr_special_tokens=3):
         while True:
             total_length = len(prem_tokens) + len(hyp_tokens) + nr_special_tokens
             if total_length <= self.max_seq_len:
@@ -73,7 +72,7 @@ class MNLIDatasetReader:
                 data = MNLIData(row['prem'], row['hyp'], row['label'])
                 prem_tokens = self.tokenizer.tokenize(data.premise)
                 hyp_tokens = self.tokenizer.tokenize(data.hypothesis)
-                self._pad_or_truncate(prem_tokens, hyp_tokens)
+                self._truncate(prem_tokens, hyp_tokens)
 
                 prem_segment_ids = [prem_segment] * (len(prem_tokens) + 1)  # considering SEP token
                 hyp_segment_ids = [hyp_segment] * (len(hyp_tokens) + 1)  # considering SEP token
