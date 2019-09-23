@@ -45,8 +45,11 @@ class MNLIDatasetReader:
             else:
                 hyp_tokens.pop()
 
-    def load_train_features(self):
+    def load_train_dataset(self):
         return self._load_features(self.train_df)
+
+    def load_val_dataset(self):
+        return self._load_features(self.val_df)
 
     def _load_features(self, df):
 

@@ -20,7 +20,7 @@ reader = MNLIDatasetReader(train_file=train_file,
                            max_seq_len=max_seq_len,
                            tokenizer=tokenizer)
 
-features = reader.load_train_features()
+features = reader.load_train_dataset()
 
 pass
 
