@@ -33,13 +33,13 @@ def train():
     model = XLNetForSequenceClassification.from_pretrained(pretrained_weights,
                                                            output_hidden_states=True,
                                                            output_attentions=True)
-
+    model.to(device)
     tokenizer = XLNetTokenizer.from_pretrained(pretrained_weights)
     paths = train_configs(tokenizer)
     reader = MNLIDatasetReader(**paths)
     train_dataset = reader.load_train_dataset()
     train_sampler = RandomSampler(train_dataset)
-    train_dataloader = DataLoader(train_dataset, train_sampler, batch_size)
+    train_dataloader = DataLoader(train_dataset, batch_size, train_sampler)
 
     t_total = len(train_dataloader) // train_epochs
 
@@ -80,7 +80,7 @@ def train():
 def evaluation(epoch, model, reader, val_batch_size, device):
     val_dataset = reader.load_val_dataset()
     val_sampler = RandomSampler(val_dataset)
-    val_dataloader = DataLoader(val_dataset, val_sampler, val_batch_size)
+    val_dataloader = DataLoader(val_dataset, val_batch_size, val_sampler)
     epoch_val_loss = 0.0
     executed_steps = 0
     for batch in tqdm(val_dataloader, desc="Evaluation Step for epoch {}".format(epoch)):
