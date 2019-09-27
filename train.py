@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import torch
+import numpy as np
 import argparse
 from pytorch_transformers import XLNetForSequenceClassification, XLNetConfig, XLNetTokenizer
 from modules.preprocess import MNLIDatasetReader
@@ -84,7 +85,6 @@ def train(args, device):
             scheduler.step()
             model.zero_grad()
 
-        # TODO: run evaluation on val test and compare metrics during train epochs
         evaluation(epoch=epoch, model=model, tokenizer=tokenizer, batch_size=args.batch_size, device=device)
 
 
@@ -101,12 +101,20 @@ def evaluation(epoch, model, tokenizer, batch_size, device):
                            'labels': tensor_batch[3]}  # labels
 
             outputs = model(**model_input)
-            val_loss = outputs[0]
+            val_loss, val_logits = outputs[0:2]
             epoch_val_loss += val_loss.mean().item()
+            if preds is None:
+                preds = val_logits.detach().cpu().numpy()
+                labels = model_input['labels'].detach().cpu().numpy()
+            else:
+                preds = np.append(preds, val_logits.detach().cpu().numpy(), axis=0)
+                labels = np.append(labels, model_input['labels'].detach().cpu().numpy(), axis=0)
         executed_steps += 1
 
     epoch_val_loss = epoch_val_loss / executed_steps
-    LOG.info(f'Epoch {epoch}: loss = {epoch_val_loss}]')
+    preds = np.argmax(preds, axis=1)
+    acc = (preds == labels).mean()
+    LOG.info(f'Epoch {epoch} - Val:[loss = {epoch_val_loss}, acc = {acc}]')
 
 
 if __name__ == '__main__':
