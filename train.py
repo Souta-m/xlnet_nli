@@ -25,15 +25,15 @@ def train_configs(max_seq_len, tokenizer, device):
     }
 
 
-def get_train_dataset_loader(tokenizer, device, batch_size):
-    paths = train_configs(tokenizer, device)
+def get_train_dataset_loader(max_seq_len, tokenizer, device, batch_size):
+    paths = train_configs(max_seq_len, tokenizer, device)
     reader = MNLIDatasetReader(**paths)
     train_dataset = reader.load_val_dataset()
     return DataLoader(train_dataset, batch_size, RandomSampler(train_dataset))
 
 
-def get_val_dataset_loader(tokenizer, device, batch_size):
-    paths = train_configs(tokenizer, device)
+def get_val_dataset_loader(max_seq_len, tokenizer, device, batch_size):
+    paths = train_configs(max_seq_len, tokenizer, device)
     reader = MNLIDatasetReader(**paths)
     val_dataset = reader.load_val_dataset()
     return DataLoader(val_dataset, batch_size, RandomSampler(val_dataset))
@@ -53,23 +53,23 @@ def train(args, device):
 
     model = XLNetForSequenceClassification.from_pretrained(model_name, config=xlnet_config)
     model.to(device)
-    train_dataloader = get_train_dataset_loader(tokenizer, device, args.batch_size)
+    train_dataloader = get_train_dataset_loader(args.max_seq_len, tokenizer, device, args.batch_size)
 
     LOG.info("Setup Optimizer and Loss Function")
     # Prepare optimizer and schedule (linear warmup and decay)
-    t_total = len(train_dataloader) // args.train_epochs
+    t_total = len(train_dataloader) // args.epochs
     no_decay = ['bias', 'LayerNorm.weight']
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in model_name.named_parameters() if not any(nd in n for nd in no_decay)],
+        {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
          'weight_decay': args.weight_decay},
-        {'params': [p for n, p in model_name.named_parameters() if any(nd in n for nd in no_decay)],
+        {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
          'weight_decay': 0.0}
     ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total)
 
     LOG.info("Training Started!")
-    for epoch in trange(args.train_epochs, desc="Epoch"):
+    for epoch in trange(args.epochs, desc="Epoch"):
         train_epoch_iterator = tqdm(train_dataloader, desc="Iteration")
         for step, batch in enumerate(train_epoch_iterator):
             model_input = {'input_ids': batch[0],  # word ids
@@ -88,8 +88,8 @@ def train(args, device):
         evaluation(epoch=epoch, model=model, tokenizer=tokenizer, batch_size=args.batch_size, device=device)
 
 
-def evaluation(epoch, model, tokenizer, batch_size, device):
-    val_dataloader = get_val_dataset_loader(tokenizer, device, batch_size)
+def evaluation(epoch, model, tokenizer, args, device):
+    val_dataloader = get_val_dataset_loader(args.max_seq_len, tokenizer, device, args.batch_size)
     epoch_val_loss = 0.0
     executed_steps = 0
     for batch in tqdm(val_dataloader, desc="Evaluation Step for epoch {}".format(epoch)):
@@ -118,18 +118,18 @@ def evaluation(epoch, model, tokenizer, batch_size, device):
 
 
 if __name__ == '__main__':
-    args = argparse.ArgumentParser()
-    args.add_argument('--batch_size', type=int, default=16)
+    argparser = argparse.ArgumentParser()
 
-    args.add_argument('--batch_size', type=int, default=16)
-    args.add_argument('--clip_norm', type=float, default=1.0, help="Gradient clipping parameter")
-    args.add_argument('--epochs', type=int, default=8, help="Train epochs")
-    args.add_argument('--max_seq_len', type=int, default=128, help="Max Sequence Length")
+    argparser.add_argument('--batch_size', type=int, default=16)
+    argparser.add_argument('--clip_norm', type=float, default=1.0, help="Gradient clipping parameter")
+    argparser.add_argument('--epochs', type=int, default=8, help="Train epochs")
+    argparser.add_argument('--max_seq_len', type=int, default=128, help="Max Sequence Length")
 
-    args.add_argument('--learning_rate', type=float, default=5e-5)
-    args.add_argument('--adam_epsilon', type=float, default=1e-8)
-    args.add_argument('--weight_decay', type=float, default=0.0)
-    args.add_argument('--warmup_steps', type=int, default=0)
+    argparser.add_argument('--learning_rate', type=float, default=5e-5)
+    argparser.add_argument('--adam_epsilon', type=float, default=1e-8)
+    argparser.add_argument('--weight_decay', type=float, default=0.0)
+    argparser.add_argument('--warmup_steps', type=int, default=0)
+    args = argparser.parse_args()
 
     tensor_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     train(args, tensor_device)
