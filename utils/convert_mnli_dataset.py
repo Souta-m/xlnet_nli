@@ -15,11 +15,11 @@ def convert():
 
     train_df = pd.read_json(files['train_file'], lines=True)
     train_df = train_df[['sentence1', 'sentence2', 'gold_label', 'genre']]
-    train_df.to_csv(files['reduced_train_file'], index=False)
+    train_df.to_csv(files['reduced_train_file'], index=False, sep='\t')
 
     val_df = pd.read_json(files['val_file'], lines=True)
     val_df = val_df[['sentence1', 'sentence2', 'gold_label', 'genre']]
-    val_df.to_csv(files['reduced_val_file'], index=False)
+    val_df.to_csv(files['reduced_val_file'], index=False, sep='\t')
 
 
 if __name__ == '__main__':

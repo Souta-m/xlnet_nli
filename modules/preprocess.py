@@ -4,6 +4,8 @@ import torch
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 import os
+from modules.log import get_logger
+
 
 class MNLIData:
 
@@ -28,11 +30,12 @@ class XLNetInputFeatures:
 
 class MNLIDatasetReader:
 
-    def __init__(self, train_file, val_file, tokenizer, max_seq_len):
-        self.train_df = pd.read_csv(train_file, sep='\t')
-        self.val_df = pd.read_csv(val_file, sep='\t')
+    def __init__(self, train_file, val_file, tokenizer, max_seq_len, device):
+        self.train_df = self._load_df(train_file)
+        self.val_df = self._load_df(val_file)
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
+        self.device = device
 
     def _truncate(self, prem_tokens, hyp_tokens, nr_special_tokens=3):
         while True:
@@ -51,18 +54,23 @@ class MNLIDatasetReader:
     def load_val_dataset(self):
         return self._load_features(self.val_df, "val")
 
-    def _load_features(self, df, dataset_type):
+    def _load_df(self, path, sep='\t'):
+        df = pd.read_csv(path, sep=sep)
+        df['prem'] = df['sentence1'].astype(str)
+        df['hyp'] = df['sentence2'].astype(str)
+        df['label'] = df['gold_label'].astype(str)
+        return df[['prem', 'hyp', 'label']]
+
+    def _load_features(self, df, dataset_type, sep_token='[SEP]', cls_token='[CLS]'):
+
+        log = get_logger('preprocess')
 
         cache_file = "cache/cache_max_len={}_xlnet_dataset={}.cache".format(self.max_seq_len, dataset_type)
         if os.path.exists(cache_file):
+            log.info('File [] already exists. Using cached features.'.format(cache_file))
             features = torch.load(cache_file)
         else:
-            features_df = pd.DataFrame()
-            features_df['prem'] = df['sentence1'].astype(str)
-            features_df['hyp'] = df['sentence2'].astype(str)
-            features_df['label'] = df['gold_label'].astype(str)
-            sep_token = '[SEP]'
-            cls_token = '[CLS]'
+            log.info('Cache miss. Creating features.'.format(cache_file))
             # segment identifier for each sentence
             prem_segment = 0
             hyp_segment = 1
@@ -75,7 +83,7 @@ class MNLIDatasetReader:
 
             for i in tqdm(range(0, df_length)):
                 try:
-                    row = features_df.iloc[i]
+                    row = df.iloc[i]
                     data = MNLIData(row['prem'], row['hyp'], row['label'])
                     prem_tokens = self.tokenizer.tokenize(data.premise)
                     hyp_tokens = self.tokenizer.tokenize(data.hypothesis)
@@ -103,17 +111,22 @@ class MNLIDatasetReader:
                     assert len(input_mask) == self.max_seq_len
                     assert len(pair_segment_ids) == self.max_seq_len
 
-                    label = MNLIData.label_map()[data.label]
-
-                    features.append(XLNetInputFeatures(pair_word_ids, pair_segment_ids, input_mask, label))
+                    if data.label not in MNLIData.label_map():
+                        log.warn("Ignoring line {} of dataset {} due to have a INVALID LABEL".format(i, dataset_type))
+                    else:
+                        label = MNLIData.label_map()[data.label]
+                        features.append(XLNetInputFeatures(pair_word_ids, pair_segment_ids, input_mask, label))
                 except Exception as exception:
-                    print("Error at iteration {}.".format(exception))
+                    log.error("Error at iteration {}. {}".format(i, exception))
                     raise
-            torch.save(features, cache_file)
 
-        tensor_word_ids = torch.tensor([feature.word_ids for feature in features], dtype=torch.long)
-        tensor_segment_ids = torch.tensor([feature.segment_ids for feature in features], dtype=torch.long)
-        tensor_input_mask = torch.tensor([feature.input_mask for feature in features], dtype=torch.long)
-        tensor_labels = torch.tensor([feature.label for feature in features], dtype=torch.long)
+            log.info('Features created. Saving in file [{}].'.format(cache_file))
+            torch.save(features, cache_file)
+            log.info('Features saved in file [{}].'.format(cache_file))
+
+        tensor_word_ids = torch.tensor([f.word_ids for f in features], dtype=torch.long, device=self.device)
+        tensor_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long, device=self.device)
+        tensor_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long, device=self.device)
+        tensor_labels = torch.tensor([f.label for f in features], dtype=torch.long, device=self.device)
 
         return TensorDataset(tensor_word_ids, tensor_segment_ids, tensor_input_mask, tensor_labels)
