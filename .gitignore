@@ -1,5 +1,5 @@
-cache/*
-logs/*
+cache/**
+logs/**
 
 
 # Byte-compiled / optimized / DLL files
