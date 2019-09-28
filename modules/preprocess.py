@@ -61,7 +61,7 @@ class MNLIDatasetReader:
         df['label'] = df['gold_label'].astype(str)
         return df[['prem', 'hyp', 'label']]
 
-    def _load_features(self, df, dataset_type, sep_token='[SEP]', cls_token='[CLS]'):
+    def _load_features(self, df, dataset_type, sep_token='<sep>', cls_token='<cls>'):
 
         log = get_logger('preprocess')
 
@@ -74,8 +74,10 @@ class MNLIDatasetReader:
             # segment identifier for each sentence
             prem_segment = 0
             hyp_segment = 1
-            cls_segment = 1
-            pad_token_id = 0
+            cls_segment = 2
+            pad_token_id = self.tokenizer.convert_tokens_to_ids([self.tokenizer.pad_token])[0]
+            pad_mask_id = 0
+            pad_segment_id = 4
 
             df_length = len(df)
 
@@ -104,15 +106,15 @@ class MNLIDatasetReader:
                     padding_len = self.max_seq_len - len(pair_word_ids)
                     # for XLNet, we need to do left pad on segment ids, mask and word identifiers
                     pair_word_ids = ([pad_token_id] * padding_len) + pair_word_ids
-                    input_mask = ([pad_token_id] * padding_len) + input_mask
-                    pair_segment_ids = ([pad_token_id] * padding_len) + pair_segment_ids
+                    input_mask = ([pad_mask_id] * padding_len) + input_mask
+                    pair_segment_ids = ([pad_segment_id] * padding_len) + pair_segment_ids
                     # Just validate whether this operation includes expected number of pads
                     assert len(pair_word_ids) == self.max_seq_len
                     assert len(input_mask) == self.max_seq_len
                     assert len(pair_segment_ids) == self.max_seq_len
 
                     if data.label not in MNLIData.label_map():
-                        log.warn("Ignoring line {} of dataset {} due to have a INVALID LABEL".format(i, dataset_type))
+                        log.debug("Ignoring line {} of dataset {} due to have a INVALID LABEL".format(i, dataset_type))
                     else:
                         label = MNLIData.label_map()[data.label]
                         features.append(XLNetInputFeatures(pair_word_ids, pair_segment_ids, input_mask, label))
