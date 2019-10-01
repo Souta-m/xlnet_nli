@@ -74,9 +74,7 @@ def train(args, device):
 
     model.zero_grad()
     for epoch in trange(args.epochs, desc="Epoch"):
-        epoch_train_loss = 0.0
         executed_steps = 0
-        preds = None
         train_epoch_iterator = tqdm(train_dataloader, desc="Iteration")
         for step, batch in enumerate(train_epoch_iterator):
             model.train()
@@ -87,13 +85,6 @@ def train(args, device):
 
             outputs = model(**model_input)
             train_loss, predictions = outputs[0:2]
-            epoch_train_loss += train_loss.mean().item()
-            if preds is None:
-                preds = predictions.detach().cpu().numpy()
-                labels = model_input['labels'].detach().cpu().numpy()
-            else:
-                preds = np.append(preds, predictions.detach().cpu().numpy(), axis=0)
-                labels = np.append(labels, model_input['labels'].detach().cpu().numpy(), axis=0)
 
             train_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)  # grad clip
@@ -102,11 +93,7 @@ def train(args, device):
             model.zero_grad()
             executed_steps += 1
 
-        calculating_loss = epoch_train_loss / executed_steps
-        preds = np.argmax(preds, axis=1)
-        train_acc = (preds == labels).mean()
-        LOG.info(f'Epoch {epoch} - Val:[loss = {calculating_loss}, acc = {train_acc}]')
-        # evaluation(epoch=epoch, model=model, tokenizer=tokenizer, args=args, device=device)
+        evaluation(epoch=epoch, model=model, tokenizer=tokenizer, args=args, device=device)
         train_epoch_iterator.close()
 
 

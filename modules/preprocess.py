@@ -64,10 +64,11 @@ class MNLIDatasetReader:
     def _load_features(self, df, dataset_type, sep_token='<sep>', cls_token='<cls>'):
 
         log = get_logger('preprocess')
+        df_length = len(df)
 
-        cache_file = "cache/cache_max_len={}_xlnet_dataset={}.cache".format(self.max_seq_len, dataset_type)
+        cache_file = "cache/cache_max_len={}_xlnet_dataset={}-samples={}.cache".format(self.max_seq_len, dataset_type, df_length)
         if os.path.exists(cache_file):
-            log.info('File [] already exists. Using cached features.'.format(cache_file))
+            log.info(f'File {cache_file} already exists. Using cached features.')
             features = torch.load(cache_file)
         else:
             log.info('Cache miss. Creating features.'.format(cache_file))
@@ -78,8 +79,6 @@ class MNLIDatasetReader:
             pad_token_id = self.tokenizer.convert_tokens_to_ids([self.tokenizer.pad_token])[0]
             pad_mask_id = 0
             pad_segment_id = 4
-
-            df_length = len(df)
 
             features = []
 
