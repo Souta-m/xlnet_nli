@@ -103,13 +103,12 @@ def evaluation(epoch, model, tokenizer, args, device):
     executed_steps = 0
     preds = None
     for batch in tqdm(val_dataloader, desc="Evaluation Step for epoch {}".format(epoch)):
-        tensor_batch = tuple(tensor.to(device) for tensor in batch)
         model.eval()
         with torch.no_grad():
-            model_input = {'input_ids': tensor_batch[0],  # word ids
-                           'attention_mask': tensor_batch[1],  # input mask
-                           'token_type_ids': tensor_batch[2],  # segment ids
-                           'labels': tensor_batch[3]}  # labels
+            model_input = {'input_ids': batch[0],  # word ids
+                           'attention_mask': batch[1],  # input mask
+                           'token_type_ids': batch[2],  # segment ids
+                           'labels': batch[3]}  # labels
 
             outputs = model(**model_input)
             val_loss, val_logits = outputs[0:2]
