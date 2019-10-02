@@ -101,8 +101,10 @@ def evaluation(epoch, model, tokenizer, args, device):
     val_dataloader = get_val_dataset_loader(args.max_seq_len, tokenizer, device, args.batch_size)
     epoch_val_loss = 0.0
     executed_steps = 0
+    preds = None
     for batch in tqdm(val_dataloader, desc="Evaluation Step for epoch {}".format(epoch)):
         tensor_batch = tuple(tensor.to(device) for tensor in batch)
+        model.eval()
         with torch.no_grad():
             model_input = {'input_ids': tensor_batch[0],  # word ids
                            'attention_mask': tensor_batch[1],  # input mask
@@ -131,13 +133,13 @@ if __name__ == '__main__':
 
     argparser.add_argument('--batch_size', type=int, default=8)
     argparser.add_argument('--clip_norm', type=float, default=1.0, help="Gradient clipping parameter")
-    argparser.add_argument('--epochs', type=int, default=100, help="Train epochs")
+    argparser.add_argument('--epochs', type=int, default=10, help="Train epochs")
     argparser.add_argument('--max_seq_len', type=int, default=128, help="Max Sequence Length")
 
-    argparser.add_argument('--learning_rate', type=float, default=2e-5)
+    argparser.add_argument('--learning_rate', type=float, default=3e-5)
     argparser.add_argument('--adam_epsilon', type=float, default=1e-8)
     argparser.add_argument('--weight_decay', type=float, default=0.0)
-    argparser.add_argument('--warmup_steps', type=int, default=0)
+    argparser.add_argument('--warmup_steps', type=int, default=2000)
     args = argparser.parse_args()
 
     tensor_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
