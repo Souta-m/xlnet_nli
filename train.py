@@ -3,9 +3,10 @@
 import torch
 import numpy as np
 import argparse
+import random
 from pytorch_transformers import XLNetForSequenceClassification, XLNetConfig, XLNetTokenizer
 from modules.preprocess import MNLIDatasetReader
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from pytorch_transformers import AdamW, WarmupLinearSchedule
 from tqdm import tqdm, trange
 
@@ -16,8 +17,9 @@ LOG = get_logger('train_xlnet')
 
 def train_configs(max_seq_len, tokenizer, device):
     base_path = '/home/ichida/dev_env/ml/data/multinli_1.0'
-    train_file = 'multinli_1.0_train_reduced_10000samples.csv'
-    val_file = 'multinli_1.0_dev_matched_reduced.txt'
+    train_file = 'multinli_1.0_train_reduced.txt'
+    # val_file = 'multinli_1.0_dev_matched_reduced.txt'
+    val_file = 'dev_matched.tsv'
     return {
         'train_file': f'{base_path}/{train_file}',
         'val_file': f'{base_path}/{val_file}',
@@ -38,10 +40,15 @@ def get_val_dataset_loader(max_seq_len, tokenizer, device, batch_size):
     paths = train_configs(max_seq_len, tokenizer, device)
     reader = MNLIDatasetReader(**paths)
     val_dataset = reader.load_val_dataset()
-    return DataLoader(val_dataset, batch_size, RandomSampler(val_dataset))
+    return DataLoader(val_dataset, batch_size, SequentialSampler(val_dataset))
 
 
 def train(args, device):
+    SEED = 42
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+
     model_name = 'xlnet-base-cased'
     LOG.info(f'Setup {model_name} tokenizer...')
     tokenizer = XLNetTokenizer.from_pretrained(model_name, do_lower_case=True)
@@ -51,15 +58,17 @@ def train(args, device):
                                                output_hidden_states=True,
                                                output_attentions=True,
                                                num_labels=3,
-                                               finetuning_task='NLI')
+                                               finetuning_task='mnli')
 
-    model = XLNetForSequenceClassification.from_pretrained(model_name, config=xlnet_config)
+    model = XLNetForSequenceClassification.from_pretrained(model_name, config=xlnet_config,
+                                                           from_tf=bool('.ckpt' in model_name))
     model.to(device)
     train_dataloader = get_train_dataset_loader(args.max_seq_len, tokenizer, device, args.batch_size)
 
     LOG.info("Setup Optimizer and Loss Function")
     # Prepare optimizer and schedule (linear warmup and decay)
-    t_total = len(train_dataloader) // args.epochs
+    # t_total = len(train_dataloader) // args.epochs
+    t_total = 1000
     no_decay = ['bias', 'LayerNorm.weight']
     optimizer_grouped_parameters = [
         {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
@@ -84,7 +93,7 @@ def train(args, device):
                            'token_type_ids': batch[2],  # segment ids
                            'labels': batch[3]}  # labels
 
-            optimizer.zero_grad()
+            # optimizer.zero_grad()
             outputs = model(**model_input)
             train_loss, train_logits = outputs[0:2]
 
@@ -101,14 +110,11 @@ def train(args, device):
                 preds = np.append(preds, train_logits.detach().cpu().numpy(), axis=0)
                 labels = np.append(labels, model_input['labels'].detach().cpu().numpy(), axis=0)
 
-        train_loss = train_loss / executed_steps
-        preds = np.argmax(preds, axis=1)
-        acc = (preds == labels).mean()
-        LOG.info(f' Train: Epoch {epoch} - Val:[loss = {train_loss}, acc = {acc}]')
+            if step == 1000:
+                break
 
-
-        evaluation(epoch=epoch, model=model, tokenizer=tokenizer, args=args, device=device)
         train_epoch_iterator.close()
+    evaluation(epoch=0, model=model, tokenizer=tokenizer, args=args, device=device)
 
 
 def evaluation(epoch, model, tokenizer, args, device):
@@ -120,20 +126,20 @@ def evaluation(epoch, model, tokenizer, args, device):
     for batch in tqdm(val_dataloader, desc="Evaluation Step for epoch {}".format(epoch)):
         model.eval()
         with torch.no_grad():
-            model_input = {'input_ids': batch[0],  # word ids
-                           'attention_mask': batch[1],  # input mask
-                           'token_type_ids': batch[2],  # segment ids
-                           'labels': batch[3]}  # labels
+            input = {'input_ids': batch[0],  # word ids
+                     'attention_mask': batch[1],  # input mask
+                     'token_type_ids': batch[2],  # segment ids
+                     'labels': batch[3]}  # labels
 
-            outputs = model(**model_input)
+            outputs = model(**input)
             val_loss, val_logits = outputs[0:2]
             epoch_val_loss += val_loss.mean().item()
-            if preds is None:
-                preds = val_logits.detach().cpu().numpy()
-                labels = model_input['labels'].detach().cpu().numpy()
-            else:
-                preds = np.append(preds, val_logits.detach().cpu().numpy(), axis=0)
-                labels = np.append(labels, model_input['labels'].detach().cpu().numpy(), axis=0)
+        if preds is None:
+            preds = val_logits.detach().cpu().numpy()
+            labels = input['labels'].detach().cpu().numpy()
+        else:
+            preds = np.append(preds, val_logits.detach().cpu().numpy(), axis=0)
+            labels = np.append(labels, input['labels'].detach().cpu().numpy(), axis=0)
         executed_steps += 1
 
     epoch_val_loss = epoch_val_loss / executed_steps
@@ -147,13 +153,13 @@ if __name__ == '__main__':
 
     argparser.add_argument('--batch_size', type=int, default=8)
     argparser.add_argument('--clip_norm', type=float, default=1.0, help="Gradient clipping parameter")
-    argparser.add_argument('--epochs', type=int, default=10, help="Train epochs")
+    argparser.add_argument('--epochs', type=int, default=1, help="Train epochs")
     argparser.add_argument('--max_seq_len', type=int, default=128, help="Max Sequence Length")
 
-    argparser.add_argument('--learning_rate', type=float, default=3e-5)
+    argparser.add_argument('--learning_rate', type=float, default=5e-5)
     argparser.add_argument('--adam_epsilon', type=float, default=1e-8)
     argparser.add_argument('--weight_decay', type=float, default=0.0)
-    argparser.add_argument('--warmup_steps', type=int, default=2000)
+    argparser.add_argument('--warmup_steps', type=int, default=1200)
     args = argparser.parse_args()
 
     tensor_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
