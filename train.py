@@ -65,7 +65,7 @@ def train(args, device):
     model.to(device)
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
-        LOG.info(f'Running on {args.n_gpus} GPUS')
+        LOG.info(f'Running on {args.n_gpu} GPUS')
 
     train_dataloader = get_train_dataset_loader(args.max_seq_len, tokenizer, device, args.batch_size)
     val_dataloader = get_val_dataset_loader(args.max_seq_len, tokenizer, device, args.batch_size)
