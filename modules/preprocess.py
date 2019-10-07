@@ -118,8 +118,9 @@ class MNLIDatasetReader:
                     pair_segment_ids = ([segment_pad_id] * padding_len) + pair_segment_ids
 
                     self._assert_seq_lens(pair_word_ids, input_mask, pair_segment_ids)
-                    label_id = MNLIData.label_map()[data.label]
-                    features.append(XLNetInputFeatures(pair_word_ids, input_mask, pair_segment_ids, label_id))
+                    if data.label in MNLIData.label_map():
+                        label_id = MNLIData.label_map()[data.label]
+                        features.append(XLNetInputFeatures(pair_word_ids, input_mask, pair_segment_ids, label_id))
                 except Exception as exception:
                     log.error("Error at iteration {}. {}".format(i, exception))
                     raise
