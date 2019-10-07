@@ -65,6 +65,7 @@ def train(args, device):
     model.to(device)
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
+        LOG.info(f'Running on {args.n_gpus} GPUS')
 
     train_dataloader = get_train_dataset_loader(args.max_seq_len, tokenizer, device, args.batch_size)
     val_dataloader = get_val_dataset_loader(args.max_seq_len, tokenizer, device, args.batch_size)
@@ -105,7 +106,7 @@ def train(args, device):
 
             if args.n_gpu > 1:
                 train_loss = train_loss.mean()
-                
+
             train_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)  # grad clip
             optimizer.step()
