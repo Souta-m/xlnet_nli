@@ -128,9 +128,9 @@ class MNLIDatasetReader:
             log.info('Features created. Saving in file [{}].'.format(cache_file))
             torch.save(features, cache_file)
         # Converting features into Tensors
-        tensor_word_ids = torch.tensor([f.word_ids for f in features], dtype=torch.long, device=self.device)
-        tensor_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long, device=self.device)
-        tensor_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long, device=self.device)
-        tensor_labels = torch.tensor([f.label for f in features], dtype=torch.long, device=self.device)
+        tensor_word_ids = torch.tensor([f.word_ids for f in features], dtype=torch.long)
+        tensor_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
+        tensor_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+        tensor_labels = torch.tensor([f.label for f in features], dtype=torch.long)
 
         return TensorDataset(tensor_word_ids, tensor_input_mask, tensor_segment_ids, tensor_labels)

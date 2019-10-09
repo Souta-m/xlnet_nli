@@ -89,7 +89,7 @@ def train(args, device):
         notify_warmup = True
         train_epoch_iterator = tqdm(train_dataloader, desc="Iteration")
         for step, batch in enumerate(train_epoch_iterator):
-
+            batch = tuple(t.to(device) for t in batch)
             if step >= args.warmup_steps and notify_warmup:
                 notify_warmup = False
                 LOG.info("Warmup limit reached...")
@@ -114,12 +114,12 @@ def train(args, device):
             model.zero_grad()
 
             if (step + 1) % args.eval_steps == 0:
-                evaluation(epoch, step, model, val_dataloader, scheduler, t_total, args)
+                evaluation(epoch, step, model, val_dataloader, scheduler, t_total, args, device)
 
         train_epoch_iterator.close()
 
 
-def evaluation(epoch, step, model, val_dataloader, scheduler, t_total, args):
+def evaluation(epoch, step, model, val_dataloader, scheduler, t_total, args, device):
     epoch_val_loss = 0.0
     executed_steps = 0
     preds = None
@@ -127,6 +127,7 @@ def evaluation(epoch, step, model, val_dataloader, scheduler, t_total, args):
     for batch in tqdm(val_dataloader, desc="Evaluation Step for epoch {}".format(epoch)):
         model.eval()
         with torch.no_grad():
+            batch = tuple(t.to(device) for t in batch)
             input = {'input_ids': batch[0],  # word ids
                      'attention_mask': batch[1],  # input mask
                      'token_type_ids': batch[2],  # segment ids
