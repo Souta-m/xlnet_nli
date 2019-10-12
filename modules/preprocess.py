@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import csv
-import torch
-from torch.utils.data import TensorDataset
-from tqdm import tqdm
 import os
-from modules.log import get_logger
+
+import torch
+from torch.utils.data import TensorDataset, RandomSampler, DataLoader, SequentialSampler
+from tqdm import tqdm
 
 
 class MNLIData:
@@ -30,12 +30,14 @@ class XLNetInputFeatures:
 
 class MNLIDatasetReader:
 
-    def __init__(self, train_file, val_file, tokenizer, max_seq_len, device):
-        self.train_file = train_file
-        self.val_file = val_file
+    def __init__(self, args, tokenizer, device, logger):
+        self.train_file = args.train_file
+        self.val_file = args.val_file
         self.tokenizer = tokenizer
-        self.max_seq_len = max_seq_len
+        self.max_seq_len = args.max_seq_len
         self.device = device
+        self.logger = logger
+        self.batch_size = args.batch_size
 
     def _truncate(self, prem_tokens, hyp_tokens, nr_special_tokens=3):
         while True:
@@ -48,11 +50,13 @@ class MNLIDatasetReader:
             else:
                 hyp_tokens.pop()
 
-    def load_train_dataset(self):
-        return self._load_features(self.train_file, "train")
+    def load_train_dataloader(self):
+        train_dataset = self._load_features(self.train_file, "train")
+        return DataLoader(train_dataset, self.batch_size, RandomSampler(train_dataset))
 
-    def load_val_dataset(self):
-        return self._load_features(self.val_file, "val")
+    def load_val_dataloader(self):
+        val_dataset = self._load_features(self.val_file, "val")
+        return DataLoader(val_dataset, self.batch_size, SequentialSampler(val_dataset))
 
     def _assert_seq_lens(self, word_ids, input_mask, segment_ids):
         assert len(word_ids) == self.max_seq_len
@@ -68,20 +72,24 @@ class MNLIDatasetReader:
         return lines[1:] if ignore_headers else lines
 
     def _load_features(self, filename, dataset_type):
-
-        log = get_logger('preprocess')
+        """
+        Transform text into XLNet input features
+        :param filename: Filename that contains the input text
+        :param dataset_type: Type of dataset (train, val, test)
+        :return: TensorDataset that contains each input features converted into torch.tensor
+        """
 
         cache_file = f'cache/max_len={self.max_seq_len}_dataset={dataset_type}-xlnet.cache'
         if os.path.exists(cache_file):
-            log.info(f'File {cache_file} already exists. Using cached features.')
+            self.logger.info(f'File {cache_file} already exists. Using cached features.')
             features = torch.load(cache_file)
         else:
-            log.info(f'Cache miss. Retrieving features from file {filename}')
+            self.logger.info(f'Cache miss. Retrieving features from file {filename}')
             lines = self._get_file_lines(filename)
             total_lines = len(lines)
-            log.info(f'Loaded {total_lines} examples from dataset {dataset_type}')
+            self.logger.info(f'Loaded {total_lines} examples from dataset {dataset_type}')
 
-            # special tokens and its ids for XLNET input
+            # special tokens and its ids for XLNET input.
             prem_segment_id = 0
             hyp_segment_id = 1
             cls_segment_id = 2
@@ -122,10 +130,10 @@ class MNLIDatasetReader:
                         label_id = MNLIData.label_map()[data.label]
                         features.append(XLNetInputFeatures(pair_word_ids, input_mask, pair_segment_ids, label_id))
                 except Exception as exception:
-                    log.error("Error at iteration {}. {}".format(i, exception))
+                    self.logger.error("Error at iteration {}. {}".format(i, exception))
                     raise
 
-            log.info('Features created. Saving in file [{}].'.format(cache_file))
+            self.logger.info('Features created. Saving in file [{}].'.format(cache_file))
             torch.save(features, cache_file)
         # Converting features into Tensors
         tensor_word_ids = torch.tensor([f.word_ids for f in features], dtype=torch.long)
