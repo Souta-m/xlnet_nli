@@ -9,15 +9,11 @@ from modules.log import get_logger
 
 class TrainModel:
 
-    def __init__(self, train_dataloader, val_dataloader):
+    def __init__(self, train_dataloader, val_dataloader, logger):
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
-        self._logger = self._get_train_logger()
+        self._logger = logger
 
-    def _get_train_logger(self, args):
-        args = self.args
-        logger_name = f'batch{args.batch_size}-seq_len{args.max_seq_len}-warmup{args.warmup_steps}-ep{args.epochs}'
-        return get_logger(logger_name)
 
     def train(self, model, device, args):
         log = self._logger
@@ -38,7 +34,7 @@ class TrainModel:
         log.info("Training Started!")
         model.zero_grad()
         for epoch in trange(args.epochs, desc="Epoch"):
-            for step, batch in tqdm(self.train_dataloader, desc="Iteration"):
+            for step, batch in enumerate(tqdm(self.train_dataloader)):
                 batch = tuple(t.to(device) for t in batch)  # Send data to target device
                 model.train()
                 model_input = {'input_ids': batch[0],  # word ids
@@ -57,10 +53,10 @@ class TrainModel:
                 model.zero_grad()
 
                 if (step + 1) % args.eval_steps == 0:
-                    evaluation(epoch, step, model, val_dataloader, scheduler, optimization_steps, args, device)
+                    self.evaluation(epoch, step, model, optimization_steps, model, device, scheduler, args)
 
 
-    def evaluation(self, train_epoch, train_step, optimization_steps, model, device, args):
+    def evaluation(self, train_epoch, train_step, optimization_steps, model, device, scheduler, args):
         epoch_val_loss = 0.0
         executed_steps = 0
         all_predictions = torch.tensor([])
@@ -86,15 +82,16 @@ class TrainModel:
         epoch_val_loss = all_losses.mean() / executed_steps
         acc = torch.eq(all_predictions, all_labels).sum().item() / all_predictions.shape[0]
         self._log.info(f'Epoch:{train_epoch} Step:{train_step} - Val:[loss = {epoch_val_loss}, acc = {acc}]')
-        self._log_optimizer_info(train_step, )
+        self._log_optimizer_info(train_step, optimization_steps, scheduler, args)
 
-    def _log_optimizer_info(self, step, optimization_steps, scheduler, args, log):
+    def _log_optimizer_info(self, step, t_total, scheduler, args):
         if step < args.warmup_steps:
             lr_scale = float(step) / float(max(1, args.warmup_steps))
         else:
             lr_scale = max(0.0,
-                           float(optimization_steps - step) / float(max(1.0, optimization_steps - args.warmup_steps)))
+                           float(t_total - step) / float(max(1.0, t_total - args.warmup_steps)))
 
-        optimizer_summary = f'Step:{step} - LR [{scheduler.get_lr()}] - LR scaling[{lr_scale}] - t_total: {optimization_steps} - Warmup: {args.warmup_steps}'
-        log.info(optimizer_summary)
+        optimizer_summary = f'Step:{step} - LR [{scheduler.get_lr()}] - LR scaling[{lr_scale}] ' \
+                            f'- t_total: {t_total} - Warmup: {args.warmup_steps}'
+        self._log.info(optimizer_summary)
 

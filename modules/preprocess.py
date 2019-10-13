@@ -30,14 +30,18 @@ class XLNetInputFeatures:
 
 class MNLIDatasetReader:
 
-    def __init__(self, args, tokenizer, device, logger):
-        self.train_file = args.train_file
-        self.val_file = args.val_file
+    def __init__(self, args, tokenizer, log):
+        """
+        Reads datasets and transform texts into features. The files must be in CSV format.
+        :param args: execution args
+        :param tokenizer: model tokenizer
+        """
+        self.train_file = os.path.join(args.base_path, args.train_file)
+        self.val_file = os.path.join(args.base_path, args.val_file)
         self.tokenizer = tokenizer
         self.max_seq_len = args.max_seq_len
-        self.device = device
-        self.logger = logger
         self.batch_size = args.batch_size
+        self._log = log
 
     def _truncate(self, prem_tokens, hyp_tokens, nr_special_tokens=3):
         while True:
@@ -81,13 +85,13 @@ class MNLIDatasetReader:
 
         cache_file = f'cache/max_len={self.max_seq_len}_dataset={dataset_type}-xlnet.cache'
         if os.path.exists(cache_file):
-            self.logger.info(f'File {cache_file} already exists. Using cached features.')
+            self._log.info(f'File {cache_file} already exists. Using cached features.')
             features = torch.load(cache_file)
         else:
-            self.logger.info(f'Cache miss. Retrieving features from file {filename}')
+            self._log.info(f'Cache miss. Retrieving features from file {filename}')
             lines = self._get_file_lines(filename)
             total_lines = len(lines)
-            self.logger.info(f'Loaded {total_lines} examples from dataset {dataset_type}')
+            self._log.info(f'Loaded {total_lines} examples from dataset {dataset_type}')
 
             # special tokens and its ids for XLNET input.
             prem_segment_id = 0
@@ -104,7 +108,7 @@ class MNLIDatasetReader:
             for i in tqdm(range(0, total_lines)):
                 try:
                     line = lines[i]
-                    data = MNLIData(line[0], line[1], line[2])
+                    data = MNLIData(line[8], line[9], line[-1])
                     prem_tokens = self.tokenizer.tokenize(data.premise)
                     hyp_tokens = self.tokenizer.tokenize(data.hypothesis)
                     self._truncate(prem_tokens, hyp_tokens)
@@ -130,10 +134,10 @@ class MNLIDatasetReader:
                         label_id = MNLIData.label_map()[data.label]
                         features.append(XLNetInputFeatures(pair_word_ids, input_mask, pair_segment_ids, label_id))
                 except Exception as exception:
-                    self.logger.error("Error at iteration {}. {}".format(i, exception))
+                    self._log.error("Error at iteration {}. {}".format(i, exception))
                     raise
 
-            self.logger.info('Features created. Saving in file [{}].'.format(cache_file))
+            self._log.info('Features created. Saving in file [{}].'.format(cache_file))
             torch.save(features, cache_file)
         # Converting features into Tensors
         tensor_word_ids = torch.tensor([f.word_ids for f in features], dtype=torch.long)
