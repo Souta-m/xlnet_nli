@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 
-import torch
-import numpy as np
 import argparse
 import random
+
+import numpy as np
+import torch
 from pytorch_transformers import XLNetForSequenceClassification, XLNetConfig, XLNetTokenizer
 
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
-from pytorch_transformers import AdamW, WarmupLinearSchedule
-from tqdm import tqdm, trange
-
+from modules.log import get_logger
 from modules.preprocess import MNLIDatasetReader
 from modules.train import TrainModel
-from modules.log import get_logger
+
 
 def get_train_logger(args):
     logger_name = f'batch{args.batch_size}-seq_len{args.max_seq_len}-warmup{args.warmup_steps}-ep{args.epochs}'
     return get_logger(logger_name)
+
 
 def train(args, device):
     log = get_train_logger(args)
@@ -51,12 +50,10 @@ def train(args, device):
     trainer.train(model, device, args)
 
 
-
-
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
 
-    argparser.add_argument('--batch_size', type=int, default=8)
+    argparser.add_argument('--batch_size', type=int, default=16)
     argparser.add_argument('--clip_norm', type=float, default=1.0, help="Gradient clipping parameter")
     argparser.add_argument('--epochs', type=int, default=2, help="Train epochs")
     argparser.add_argument('--max_seq_len', type=int, default=128, help="Max Sequence Length")

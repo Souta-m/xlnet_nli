@@ -53,15 +53,15 @@ class TrainModel:
                 model.zero_grad()
 
                 if (step + 1) % args.eval_steps == 0:
-                    self.evaluation(epoch, step, model, optimization_steps, model, device, scheduler, args)
+                    self.evaluation(epoch, step, optimization_steps, model, device, scheduler, args)
 
 
     def evaluation(self, train_epoch, train_step, optimization_steps, model, device, scheduler, args):
         epoch_val_loss = 0.0
         executed_steps = 0
-        all_predictions = torch.tensor([])
-        all_labels = torch.tensor([])
-        all_loss = torch.tensor([])
+        all_predictions = torch.tensor([], device=device, dtype=torch.long)
+        all_labels = torch.tensor([], device=device, dtype=torch.long)
+        all_losses = torch.tensor([], device=device, dtype=torch.float)
         for batch in tqdm(self.val_dataloader, desc="Evaluation"):
             model.eval()
             with torch.no_grad():
@@ -76,12 +76,12 @@ class TrainModel:
                 predictions = torch.argmax(val_logits, dim=1)
                 all_predictions = torch.cat([all_predictions, predictions])
                 all_labels = torch.cat([all_labels, model_input['labels']])
-                all_losses = torch.cat([all_losses, val_loss])
+                all_losses = torch.cat([all_losses, val_loss.reshape(1)])
             executed_steps += 1
 
         epoch_val_loss = all_losses.mean() / executed_steps
         acc = torch.eq(all_predictions, all_labels).sum().item() / all_predictions.shape[0]
-        self._log.info(f'Epoch:{train_epoch} Step:{train_step} - Val:[loss = {epoch_val_loss}, acc = {acc}]')
+        self._logger.info(f'Epoch:{train_epoch} Step:{train_step} - Val:[loss = {epoch_val_loss}, acc = {acc}]')
         self._log_optimizer_info(train_step, optimization_steps, scheduler, args)
 
     def _log_optimizer_info(self, step, t_total, scheduler, args):
@@ -93,5 +93,5 @@ class TrainModel:
 
         optimizer_summary = f'Step:{step} - LR [{scheduler.get_lr()}] - LR scaling[{lr_scale}] ' \
                             f'- t_total: {t_total} - Warmup: {args.warmup_steps}'
-        self._log.info(optimizer_summary)
+        self._logger.info(optimizer_summary)
 
