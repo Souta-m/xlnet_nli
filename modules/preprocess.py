@@ -2,21 +2,11 @@
 import csv
 import os
 
+from abc import abstractmethod
+
 import torch
 from torch.utils.data import TensorDataset, RandomSampler, DataLoader, SequentialSampler
 from tqdm import tqdm
-
-
-class MNLIData:
-
-    def __init__(self, premise, hypothesis, label):
-        self.premise = premise
-        self.hypothesis = hypothesis
-        self.label = label
-
-    @staticmethod
-    def label_map():
-        return {label: i for i, label in enumerate(["contradiction", "entailment", "neutral"])}
 
 
 class XLNetInputFeatures:
@@ -28,7 +18,7 @@ class XLNetInputFeatures:
         self.label = label
 
 
-class MNLIDatasetReader:
+class DatasetReader:
 
     def __init__(self, args, tokenizer, log):
         """
@@ -42,6 +32,28 @@ class MNLIDatasetReader:
         self.max_seq_len = args.max_seq_len
         self.batch_size = args.batch_size
         self._log = log
+
+    @abstractmethod
+    def parse_line(self, line_fields):
+        """
+        :param line_fields: an array that contains the field values given a dataset row
+        :return: must return a tuple (sentence_a, sentence_b, label)
+        """
+        pass
+
+    @abstractmethod
+    def label_enumeration(self):
+        """
+        :return: List of expected labels contained in the dataset having the string representation and a index.
+        """
+        pass
+
+    @abstractmethod
+    def dataset_name(self):
+        """
+        :return: The name of dataset
+        """
+        pass
 
     def _truncate(self, prem_tokens, hyp_tokens, nr_special_tokens=3):
         while True:
@@ -83,7 +95,7 @@ class MNLIDatasetReader:
         :return: TensorDataset that contains each input features converted into torch.tensor
         """
 
-        cache_file = f'cache/max_len={self.max_seq_len}_dataset={dataset_type}-xlnet.cache'
+        cache_file = f'cache/max_len={self.max_seq_len}_dataset={self.dataset_name()}_{dataset_type}-xlnet.cache'
         if os.path.exists(cache_file):
             self._log.info(f'File {cache_file} already exists. Using cached features.')
             features = torch.load(cache_file)
@@ -94,8 +106,8 @@ class MNLIDatasetReader:
             self._log.info(f'Loaded {total_lines} examples from dataset {dataset_type}')
 
             # special tokens and its ids for XLNET input.
-            prem_segment_id = 0
-            hyp_segment_id = 1
+            segment_a_id = 0
+            segment_b_id = 1
             cls_segment_id = 2
             mask_pad_id = 0
             segment_pad_id = 4
@@ -107,20 +119,19 @@ class MNLIDatasetReader:
             features = []
             for i in tqdm(range(0, total_lines)):
                 try:
-                    line = lines[i]
-                    data = MNLIData(line[8], line[9], line[-1])
-                    prem_tokens = self.tokenizer.tokenize(data.premise)
-                    hyp_tokens = self.tokenizer.tokenize(data.hypothesis)
-                    self._truncate(prem_tokens, hyp_tokens)
+                    sentence_a, sentence_b, label = self.parse_line(lines[i])
+                    tokens_a = self.tokenizer.tokenize(sentence_a)
+                    tokens_b = self.tokenizer.tokenize(sentence_b)
+                    self._truncate(tokens_a, tokens_b)
                     # XLNET representation = PREM + [SEP] + HYP + [SEP] + [CLS]
-                    pair_tokens = prem_tokens + [sep_token] + hyp_tokens + [sep_token, cls_token]
+                    pair_tokens = tokens_a + [sep_token] + tokens_b + [sep_token, cls_token]
                     pair_word_ids = self.tokenizer.convert_tokens_to_ids(pair_tokens)
                     # Input mask, setting 1 in position that contains a word and setting MASK_PAD otherwise
                     input_mask = [1] * len(pair_word_ids)
                     # Segment ID of each sentence
-                    prem_segment_ids = [prem_segment_id] * (len(prem_tokens) + 1)  # considering SEP token
-                    hyp_segment_ids = [hyp_segment_id] * (len(hyp_tokens) + 1)  # considering SEP token
-                    pair_segment_ids = prem_segment_ids + hyp_segment_ids + [cls_segment_id]
+                    segment_a_ids = [segment_a_id] * (len(tokens_a) + 1)  # considering SEP token
+                    segment_b_ids = [segment_b_id] * (len(tokens_b) + 1)  # considering SEP token
+                    pair_segment_ids = segment_a_ids + segment_b_ids + [cls_segment_id]
 
                     # Pad sequences and its mask, pad_len should not be negative because we truncate the pair before
                     padding_len = self.max_seq_len - len(pair_word_ids)
@@ -130,8 +141,8 @@ class MNLIDatasetReader:
                     pair_segment_ids = ([segment_pad_id] * padding_len) + pair_segment_ids
 
                     self._assert_seq_lens(pair_word_ids, input_mask, pair_segment_ids)
-                    if data.label in MNLIData.label_map():
-                        label_id = MNLIData.label_map()[data.label]
+                    if label in self.label_enumeration():
+                        label_id = self.label_enumeration()[label]
                         features.append(XLNetInputFeatures(pair_word_ids, input_mask, pair_segment_ids, label_id))
                 except Exception as exception:
                     self._log.error("Error at iteration {}. {}".format(i, exception))
@@ -146,3 +157,15 @@ class MNLIDatasetReader:
         tensor_labels = torch.tensor([f.label for f in features], dtype=torch.long)
 
         return TensorDataset(tensor_word_ids, tensor_input_mask, tensor_segment_ids, tensor_labels)
+
+
+class MNLIDatasetReader(DatasetReader):
+
+    def label_enumeration(self):
+        return {label: i for i, label in enumerate(["contradiction", "entailment", "neutral"])}
+
+    def parse_line(self, line_fields):
+        return line_fields[8], line_fields[9], line_fields[-1]
+
+    def dataset_name(self):
+        return "MNLI"

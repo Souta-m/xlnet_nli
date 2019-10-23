@@ -13,11 +13,13 @@ from modules.train import TrainModel
 
 
 def get_train_logger(args):
-    logger_name = f'batch{args.batch_size}-seq_len{args.max_seq_len}-warmup{args.warmup_steps}-ep{args.epochs}'
+    logger_name = f'batch{args.batch_size}-seq_len{args.max_seq_len}-warmup{args.warmup_steps}-ep{args.epochs}-' \
+        f'dataset{args.dataset_name}'
     return get_logger(logger_name)
 
 
 def train(args, device):
+    args.dataset_name = "MNLI"  # TODO: parametrize
     log = get_train_logger(args)
     SEED = 42
     random.seed(SEED)
@@ -32,7 +34,7 @@ def train(args, device):
                                                output_hidden_states=True,
                                                output_attentions=True,
                                                num_labels=3,
-                                               finetuning_task='mnli')
+                                               finetuning_task=args.dataset_name)
 
     model = XLNetForSequenceClassification.from_pretrained(model_name, config=xlnet_config)
 
@@ -55,19 +57,24 @@ if __name__ == '__main__':
 
     argparser.add_argument('--batch_size', type=int, default=16)
     argparser.add_argument('--clip_norm', type=float, default=1.0, help="Gradient clipping parameter")
-    argparser.add_argument('--epochs', type=int, default=2, help="Train epochs")
+    argparser.add_argument('--epochs', type=int, default=4, help="Train epochs")
     argparser.add_argument('--max_seq_len', type=int, default=128, help="Max Sequence Length")
-    argparser.add_argument('--eval_steps', type=int, default=500, help="Steps to execute validation phase")
+    argparser.add_argument('--eval_steps', type=int, default=3000, help="Steps to execute validation phase")
+    argparser.add_argument('--min_acc_save', type=float, default=0.86, help='Min acc to save the trained model')
+    argparser.add_argument('--max_loss_save', type=float, default=0.40,
+                           help='Maximum error value considered to save a model')
 
     argparser.add_argument('--learning_rate', type=float, default=3e-5)
     argparser.add_argument('--adam_epsilon', type=float, default=1e-6)
     argparser.add_argument('--weight_decay', type=float, default=0.0)
-    argparser.add_argument('--warmup_steps', type=int, default=4000)
+    argparser.add_argument('--warmup_steps', type=int, default=3500)
 
     argparser.add_argument('--device', type=str, help='Device of execution. Values: cpu or cuda', default='cuda')
     argparser.add_argument('--base_path', type=str, default='../MNLI/', help='Base file directory')
     argparser.add_argument('--train_file', type=str, default='train.tsv', help='File that contains train data')
     argparser.add_argument('--val_file', type=str, default='dev_matched.tsv', help='File that contains validation data')
+    argparser.add_argument('--output_dir', type=str, default='saved_models/',
+                           help='Directory of resulted pretrained model.')
 
     args = argparser.parse_args()
 
