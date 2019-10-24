@@ -60,7 +60,7 @@ class TrainModel:
                         best_val_acc = val_acc
                     if val_loss < best_val_loss:
                         best_val_loss = val_loss
-                    if args.min_acc_save < best_val_acc or train_loss < args.max_loss_save:
+                    if args.min_acc_save < best_val_acc or best_val_loss < args.max_loss_save:
                         log.info(f'Saving model with acc: {val_acc:0.3f} and loss: {val_loss:0.3f}')
                         self.save_model(model, val_acc, val_loss, step, epoch, args)
 
