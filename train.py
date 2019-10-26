@@ -55,6 +55,8 @@ def train(args, device):
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
 
+    argparser.add_argument("--n_gpu", type=int)
+
     argparser.add_argument('--batch_size', type=int, default=16)
     argparser.add_argument('--clip_norm', type=float, default=1.0, help="Gradient clipping parameter")
     argparser.add_argument('--epochs', type=int, default=4, help="Train epochs")
@@ -78,6 +80,7 @@ if __name__ == '__main__':
 
     args = argparser.parse_args()
 
-    args.n_gpu = torch.cuda.device_count()
+    args.n_gpu = torch.cuda.device_count() if not args.n_gpu else args.n_gpu
+
     tensor_device = torch.device(args.device)
     train(args, tensor_device)
