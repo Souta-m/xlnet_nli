@@ -25,11 +25,11 @@ class Test:
         model.eval()
         with torch.no_grad():
             for line in tqdm(test_line):
-                a, b, pair_id = line[8], line[9], line[2]
+                a, b, pair_id = self.dataset_reader.parse_line(line)
                 pair_word_ids, input_mask, pair_segment_ids = self.dataset_reader.convert_text_to_features(a, b)
-                tensor_word_ids = torch.tensor([pair_word_ids], dtype=torch.long)
-                tensor_input_mask = torch.tensor([input_mask], dtype=torch.long)
-                tensor_segment_ids = torch.tensor([pair_segment_ids], dtype=torch.long)
+                tensor_word_ids = torch.tensor([pair_word_ids], dtype=torch.long, device=device)
+                tensor_input_mask = torch.tensor([input_mask], dtype=torch.long, device=device)
+                tensor_segment_ids = torch.tensor([pair_segment_ids], dtype=torch.long, device=device)
                 model_input = {'input_ids': tensor_word_ids,  # word ids
                                'attention_mask': tensor_input_mask,  # input mask
                                'token_type_ids': tensor_segment_ids}

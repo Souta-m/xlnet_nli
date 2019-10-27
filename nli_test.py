@@ -51,7 +51,7 @@ if __name__ == '__main__':
     argparser.add_argument("--batch_size", type=int, default=16)
     argparser.add_argument('--device', type=str, help='Device of execution. Values: cpu or cuda', default='cuda')
     argparser.add_argument('--base_path', type=str, default='../MNLI/', help='Base file directory')
-    argparser.add_argument('--test_matched_file', type=str, default='test_matched.tsv', help='File that contains test '
+    argparser.add_argument('--test_matched_file', type=str, default='multinli_0.9_test_matched_unlabeled.txt', help='File that contains test '
                                                                                              'matched data')
     argparser.add_argument('--test_mismatched_file', type=str, default='test_mismatched.tsv',
                            help='File that contains test '
