@@ -2,6 +2,7 @@
 
 import argparse
 import random
+import os
 
 import numpy as np
 import torch
@@ -45,8 +46,10 @@ def train(args, device):
 
     # Load features from datasets
     data_loader = MNLIDatasetReader(args, tokenizer, log)
-    train_dataloader = data_loader.load_train_dataloader()
-    val_dataloader = data_loader.load_val_dataloader()
+    train_file = os.path.join(args.base_path, args.train_file)
+    val_file = os.path.join(args.base_path, args.val_file)
+    train_dataloader = data_loader.load_train_dataloader(train_file)
+    val_dataloader = data_loader.load_val_dataloader(val_file)
 
     trainer = TrainModel(train_dataloader, val_dataloader, log)
     trainer.train(model, device, args)
