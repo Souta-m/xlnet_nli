@@ -14,13 +14,15 @@ from modules.train import TrainModel
 
 
 def get_train_logger(args):
-    logger_name = f'batch{args.batch_size}-seq_len{args.max_seq_len}-warmup{args.warmup_steps}-ep{args.epochs}-' \
+    logger_name = f'model{args.model_name}-batch{args.batch_size}-seq_len{args.max_seq_len}-warmup{args.warmup_steps}-ep{args.epochs}-' \
         f'dataset{args.dataset_name}'
     return get_logger(logger_name)
 
 
 def train(args, device):
     args.dataset_name = "MNLI"  # TODO: parametrize
+
+    model_name = args.model_name
     log = get_train_logger(args)
     SEED = 42
     random.seed(SEED)
@@ -28,8 +30,6 @@ def train(args, device):
     torch.manual_seed(SEED)
 
     log.info(f'Using device {device}')
-
-    model_name = 'xlnet-base-cased'
     tokenizer = XLNetTokenizer.from_pretrained(model_name, do_lower_case=True)
     xlnet_config = XLNetConfig.from_pretrained(model_name,
                                                output_hidden_states=True,
@@ -58,6 +58,7 @@ def train(args, device):
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser()
 
+    argparser.add_argument('--model_name', type=str, default='xlnet-large-cased')
     argparser.add_argument("--n_gpu", type=int)
 
     argparser.add_argument('--batch_size', type=int, default=16)

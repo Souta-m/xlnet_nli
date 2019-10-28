@@ -175,4 +175,4 @@ class MNLIDatasetReader(DatasetReader):
 class KaggleMNLIDatasetReader(MNLIDatasetReader):
 
     def parse_line(self, line_fields):
-        line_fields[5], line_fields[6], line_fields[8]
+        return line_fields[5], line_fields[6], line_fields[8]
