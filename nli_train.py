@@ -14,8 +14,8 @@ from modules.train import TrainModel
 
 
 def get_train_logger(args):
-    logger_name = f'model{args.model_name}-batch{args.batch_size}-seq_len{args.max_seq_len}-warmup{args.warmup_steps}-ep{args.epochs}-' \
-        f'dataset{args.dataset_name}'
+    logger_name = f'{args.model_name}-batch{args.batch_size}-seq{args.max_seq_len}' \
+        f'-warmup{args.warmup_steps}-ep{args.epochs}-{args.dataset_name}'
     return get_logger(logger_name)
 
 
@@ -60,6 +60,8 @@ if __name__ == '__main__':
 
     argparser.add_argument('--model_name', type=str, default='xlnet-large-cased')
     argparser.add_argument("--n_gpu", type=int)
+
+    argparser.add_argument('--gradient_accumulation_steps', type=int, default=1)
 
     argparser.add_argument('--batch_size', type=int, default=16)
     argparser.add_argument('--clip_norm', type=float, default=1.0, help="Gradient clipping parameter")

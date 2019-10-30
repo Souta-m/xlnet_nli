@@ -49,11 +49,13 @@ class TrainModel:
                 if args.n_gpu > 1:
                     train_loss = train_loss.mean()
                 train_loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)  # grad clip
-                optimizer.step()
-                scheduler.step()
-                model.zero_grad()
-
+                # Accumulates the gradient before optimize the model
+                if args.gradient_accumulation_steps % (step + 1) == 0:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)  # grad clip
+                    optimizer.step()
+                    scheduler.step()
+                    model.zero_grad()
+                # Steps necessary to run the trained model into validation data set
                 if (step + 1) % args.eval_steps == 0:
                     val_acc, val_loss = self.evaluation(epoch, step, optimization_steps, model, device, scheduler, args)
                     if val_acc > best_val_acc:
