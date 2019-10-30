@@ -80,6 +80,8 @@ class TrainModel:
 
                 outputs = model(**model_input)
                 val_loss, val_logits = outputs[0:2]
+                if args.n_gpu > 1:
+                    val_loss = val_loss.mean()
                 predictions = torch.argmax(val_logits, dim=1)
                 all_predictions = torch.cat([all_predictions, predictions])
                 all_labels = torch.cat([all_labels, model_input['labels']])
@@ -104,7 +106,7 @@ class TrainModel:
         self._logger.info(optimizer_summary)
 
     def save_model(self, model, accuracy, loss, step, epoch, args):
-        file = f'acc{accuracy:0.3f}-loss{loss:0.3f}-step{step}-epoch{epoch}/'
+        file = f'{args.model_name}-acc{accuracy:0.3f}-loss{loss:0.3f}-step{step}-epoch{epoch}/'
         path = os.path.join(args.output_dir, file)
         if not os.path.exists(path):
             pathlib.Path(path).mkdir(parents=True, exist_ok=True)
