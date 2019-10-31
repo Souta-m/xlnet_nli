@@ -18,8 +18,7 @@ class TrainModel:
     def train(self, model, device, args):
         log = self._logger
         # Prepare optimizer and schedule (linear warmup and decay)
-        log.info("Setup Optimizer and Loss Function")
-        optimization_steps = len(self.train_dataloader) * args.epochs
+        optimization_steps = (len(self.train_dataloader) * args.epochs) // args.gradient_accumulation_steps
         no_decay = ['bias', 'LayerNorm.weight']
         optimizer_grouped_parameters = [
             {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
@@ -31,10 +30,8 @@ class TrainModel:
         scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=optimization_steps)
 
         # Train
-        log.info("Training Started!")
+        log.info(f"Training Started with parameters {args}")
         model.zero_grad()
-        best_val_acc = 0.0
-        best_val_loss = 1.0
         for epoch in trange(args.epochs, desc="Epoch"):
             for step, batch in enumerate(tqdm(self.train_dataloader)):
                 batch = tuple(t.to(device) for t in batch)  # Send data to target device
@@ -61,12 +58,7 @@ class TrainModel:
                 # Steps necessary to run the trained model into validation data set
                 if (step + 1) % args.eval_steps == 0:
                     val_acc, val_loss = self.evaluation(epoch, step, optimization_steps, model, device, scheduler, args)
-                    if val_acc > best_val_acc:
-                        best_val_acc = val_acc
-                    if val_loss < best_val_loss:
-                        best_val_loss = val_loss
                     if args.min_acc_save < val_acc or val_loss < args.max_loss_save:
-                        log.info(f'Saving model with acc: {val_acc:0.3f} and loss: {val_loss:0.3f}')
                         self.save_model(model, val_acc, val_loss, step, epoch, args)
 
     def evaluation(self, train_epoch, train_step, optimization_steps, model, device, scheduler, args):
@@ -95,7 +87,8 @@ class TrainModel:
 
         epoch_val_loss = all_losses.mean()
         acc = torch.eq(all_predictions, all_labels).sum().item() / all_predictions.shape[0]
-        self._logger.info(f'Epoch:{train_epoch} Step:{train_step} - Val:[loss = {epoch_val_loss}, acc = {acc}]')
+        self._logger.info(
+            f'Epoch:{train_epoch} Step:{train_step} - Val:[loss = {epoch_val_loss:0.4f}, acc = {acc:0.4f}]')
         self._log_optimizer_info(train_step, optimization_steps, scheduler, args)
         return acc, epoch_val_loss
 
@@ -106,7 +99,7 @@ class TrainModel:
             lr_scale = max(0.0,
                            float(t_total - step) / float(max(1.0, t_total - args.warmup_steps)))
 
-        optimizer_summary = f'Step:{step} - LR [{scheduler.get_lr()}] - LR scaling[{lr_scale}] ' \
+        optimizer_summary = f'Step:{step} - LR [{scheduler.get_lr()}] - LR scaling[{lr_scale:0.3f}] ' \
             f'- t_total: {t_total} - Warmup: {args.warmup_steps}'
         self._logger.info(optimizer_summary)
 
@@ -115,5 +108,5 @@ class TrainModel:
         path = os.path.join(args.output_dir, file)
         if not os.path.exists(path):
             pathlib.Path(path).mkdir(parents=True, exist_ok=True)
-        self._logger.info(f'Saving model into file {path}')
+        self._logger.info(f'Saving model with acc: {accuracy:0.3f} and loss: {loss:0.3f} into file {path}')
         model.save_pretrained(path)
