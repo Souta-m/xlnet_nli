@@ -53,7 +53,7 @@ class TrainModel:
                     train_loss = train_loss / args.gradient_accumulation_steps
                 train_loss.backward()
                 # Accumulates the gradient before optimize the model
-                if args.gradient_accumulation_steps % (step + 1) == 0:
+                if (step + 1) % args.gradient_accumulation_steps == 0:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)  # grad clip
                     optimizer.step()
                     scheduler.step()
