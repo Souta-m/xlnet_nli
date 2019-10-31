@@ -68,8 +68,8 @@ if __name__ == '__main__':
     argparser.add_argument('--epochs', type=int, default=4, help="Train epochs")
     argparser.add_argument('--max_seq_len', type=int, default=128, help="Max Sequence Length")
     argparser.add_argument('--eval_steps', type=int, default=1000, help="Steps to execute validation phase")
-    argparser.add_argument('--min_acc_save', type=float, default=0.86, help='Min acc to save the trained model')
-    argparser.add_argument('--max_loss_save', type=float, default=0.40,
+    argparser.add_argument('--min_acc_save', type=float, default=0.89, help='Min acc to save the trained model')
+    argparser.add_argument('--max_loss_save', type=float, default=0.306,
                            help='Maximum error value considered to save a model')
 
     argparser.add_argument('--learning_rate', type=float, default=3e-5)
