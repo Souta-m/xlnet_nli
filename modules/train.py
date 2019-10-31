@@ -48,6 +48,9 @@ class TrainModel:
                 train_loss = outputs[0]
                 if args.n_gpu > 1:
                     train_loss = train_loss.mean()
+
+                if args.gradient_accumulation_steps > 1:
+                    train_loss = train_loss / args.gradient_accumulation_steps
                 train_loss.backward()
                 # Accumulates the gradient before optimize the model
                 if args.gradient_accumulation_steps % (step + 1) == 0:
