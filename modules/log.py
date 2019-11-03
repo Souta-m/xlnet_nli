@@ -10,7 +10,7 @@ def get_logger(identifier, base_path=''):
 
     logger = logging.getLogger(identifier)
     hdlr = logging.FileHandler(base_path + 'logs/{}.log'.format(identifier))
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(message)s')
     hdlr.setFormatter(formatter)
     console_log.setFormatter(formatter)
     logger.addHandler(hdlr)
