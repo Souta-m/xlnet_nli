@@ -17,3 +17,13 @@ def get_logger(identifier, base_path=''):
     logger.addHandler(console_log)
     logger.setLevel(logging.INFO)
     return logger
+
+
+def get_only_message_logger(identifier, base_path=''):
+    logger = logging.getLogger(identifier)
+    hdlr = logging.FileHandler(base_path + 'logs/{}.log'.format(identifier))
+    formatter = logging.Formatter('%(message)s')
+    hdlr.setFormatter(formatter)
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.INFO)
+    return logger

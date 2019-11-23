@@ -29,7 +29,13 @@ class DatasetReader:
         self.tokenizer = tokenizer
         self.max_seq_len = args.max_seq_len
         self.batch_size = args.batch_size
+        self.val_batch_size = args.val_batch_size
         self._log = log
+        # Fiel Directories
+        self.base_path = args.base_path
+        self.train_file = args.train_file
+        self.test_file = args.test_file
+        self.val_file = args.val_file
         # special tokens and its ids for XLNET input.
         self.segment_a_id = 0
         self.segment_b_id = 1
@@ -73,23 +79,38 @@ class DatasetReader:
             else:
                 hyp_tokens.pop()
 
+    def get_all_dataloaders(self):
+        train_file = os.path.join(self.base_path, self.train_file)
+        val_file = os.path.join(self.base_path, self.val_file)
+        test_file = os.path.join(self.base_path, self.test_file)
+        train = self.load_train_dataloader(train_file)
+        val = self.load_val_dataloader(val_file)
+        test = self.load_test_dataloader(test_file)
+        return train, val, test
+
     def load_train_dataloader(self, train_file):
         train_dataset = self._load_features(train_file, "train")
-        return DataLoader(train_dataset, self.batch_size, RandomSampler(train_dataset))
+        return DataLoader(train_dataset, batch_size=self.batch_size, sampler=RandomSampler(train_dataset), shuffle=False)
 
     def load_val_dataloader(self, val_file):
         val_dataset = self._load_features(val_file, "val")
-        return DataLoader(val_dataset, self.batch_size, SequentialSampler(val_dataset))
+        return DataLoader(val_dataset, batch_size=self.val_batch_size, sampler=SequentialSampler(val_dataset),
+                          shuffle=False)
+
+    def load_test_dataloader(self, test_file):
+        test_dataset = self._load_features(test_file, "test")
+        return DataLoader(test_dataset, batch_size=self.batch_size, sampler=SequentialSampler(test_dataset),
+                          shuffle=False)
 
     def _assert_seq_lens(self, word_ids, input_mask, segment_ids):
         assert len(word_ids) == self.max_seq_len
         assert len(input_mask) == self.max_seq_len
         assert len(segment_ids) == self.max_seq_len
 
-    def get_file_lines(self, filename, ignore_headers=True):
+    def get_file_lines(self, filename, ignore_headers=True, delimiter='\t'):
         lines = []
         with open(filename, 'r', encoding='utf-8-sig') as file:
-            reader = csv.reader(file, delimiter='\t', quoting=csv.QUOTE_NONE)
+            reader = csv.reader(file, delimiter=delimiter, quoting=csv.QUOTE_NONE)
             for line in reader:
                 lines.append(line)
         return lines[1:] if ignore_headers else lines
@@ -115,7 +136,7 @@ class DatasetReader:
         input_mask = ([self.mask_pad_id] * padding_len) + input_mask
         pair_segment_ids = ([self.segment_pad_id] * padding_len) + pair_segment_ids
 
-        #self._assert_seq_lens(pair_word_ids, input_mask, pair_segment_ids)
+        # self._assert_seq_lens(pair_word_ids, input_mask, pair_segment_ids)
         return pair_word_ids, input_mask, pair_segment_ids
 
     def _load_features(self, filename, dataset_type):
@@ -171,6 +192,17 @@ class MNLIDatasetReader(DatasetReader):
 
     def dataset_name(self):
         return "MNLI"
+
+class ConductDatasetReader(DatasetReader):
+
+    def label_enumeration(self):
+        return {label: i for i, label in enumerate(["yes", "no"])}
+
+    def parse_line(self, line_fields):
+        return line_fields[0], line_fields[1], line_fields[2]
+
+    def dataset_name(self):
+        return "ConductCodeDataset"
 
 class KaggleMNLIDatasetReader(MNLIDatasetReader):
 
