@@ -3,7 +3,7 @@
 import torch
 from tqdm import tqdm
 
-class Test:
+class KaggleTest:
 
     def __init__(self, tokenizer, log, dataset_reader):
         self._log = log

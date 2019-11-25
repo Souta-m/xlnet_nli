@@ -11,7 +11,7 @@ from pytorch_transformers import XLNetForSequenceClassification, XLNetConfig, XL
 from modules.preprocess import KaggleMNLIDatasetReader
 
 from modules.log import get_logger
-from modules.test import Test
+from modules.kaggle_test import KaggleTest
 
 
 def validate_on_test_set(args, device):
@@ -33,7 +33,7 @@ def validate_on_test_set(args, device):
         model = torch.nn.DataParallel(model)
     log.info(f'Running on {args.n_gpu} GPUS')
 
-    test_executor = Test(tokenizer, log, data_reader)
+    test_executor = KaggleTest(tokenizer, log, data_reader)
     write_kaggle_results("matched", args.test_matched_file, test_executor, device, model)
     write_kaggle_results("mismatched", args.test_mismatched_file, test_executor, device, model)
 
@@ -60,7 +60,7 @@ if __name__ == '__main__':
                                 'matched data')
     argparser.add_argument('--test_mismatched_file', type=str, default='multinli_0.9_test_mismatched_unlabeled.txt',
                            help='File that contains test mismatched data')
-    argparser.add_argument('--result_dir', type=str, default='nli_test_results/',
+    argparser.add_argument('--result_dir', type=str, default='results/',
                            help='Directory that contains test results')
     argparser.add_argument('--model_file', type=str, help="Model file", required=True)
     argparser.add_argument('--config_file', type=str, help="Model config file", required=True)

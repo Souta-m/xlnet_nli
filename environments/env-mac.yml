@@ -1,4 +1,4 @@
-name: xlnet-nli
+name: xlnet-norms
 channels:
   - pytorch
   - defaults

@@ -12,5 +12,5 @@ XLNet for Natural Language Inference
 - Import conda environment:
 
 ~~~
-> conda create env -f environment.yml
+> conda env create -f environments/env-{OS}.yml
 ~~~

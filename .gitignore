@@ -1,5 +1,6 @@
 cache/**
 logs/**
+saved_models/**
 !.gitkeep
 
 
