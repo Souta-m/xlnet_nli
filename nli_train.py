@@ -40,9 +40,6 @@ def train(args, device):
     model = XLNetForSequenceClassification.from_pretrained(model_name, config=xlnet_config)
 
     model.to(device)
-    if args.n_gpu > 1:
-        model = torch.nn.DataParallel(model)
-        log.info(f'Running on {args.n_gpu} GPUS')
 
     # Load features from datasets
     data_loader = MNLIDatasetReader(args, tokenizer, log)
@@ -81,12 +78,9 @@ if __name__ == '__main__':
     argparser.add_argument('--base_path', type=str, default='../MNLI/', help='Base file directory')
     argparser.add_argument('--train_file', type=str, default='train.tsv', help='File that contains train data')
     argparser.add_argument('--val_file', type=str, default='dev_matched.tsv', help='File that contains validation data')
-    argparser.add_argument('--output_dir', type=str, default='saved_models/',
-                           help='Directory of resulted pretrained model.')
+    argparser.add_argument('--output_dir', type=str, default='saved_models/', help='Directory for resulted model.')
 
     args = argparser.parse_args()
-
-    args.n_gpu = torch.cuda.device_count() if not args.n_gpu else args.n_gpu
 
     tensor_device = torch.device(args.device)
     train(args, tensor_device)

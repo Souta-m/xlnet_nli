@@ -90,7 +90,8 @@ class DatasetReader:
 
     def load_train_dataloader(self, train_file):
         train_dataset = self._load_features(train_file, "train")
-        return DataLoader(train_dataset, batch_size=self.batch_size, sampler=RandomSampler(train_dataset), shuffle=False)
+        return DataLoader(train_dataset, batch_size=self.batch_size, sampler=RandomSampler(train_dataset),
+                          shuffle=False)
 
     def load_val_dataloader(self, val_file):
         val_dataset = self._load_features(val_file, "val")
@@ -193,6 +194,7 @@ class MNLIDatasetReader(DatasetReader):
     def dataset_name(self):
         return "MNLI"
 
+
 class ConductDatasetReader(DatasetReader):
 
     def label_enumeration(self):
@@ -204,7 +206,17 @@ class ConductDatasetReader(DatasetReader):
     def dataset_name(self):
         return "ConductCodeDataset"
 
+
 class KaggleMNLIDatasetReader(MNLIDatasetReader):
 
     def parse_line(self, line_fields):
         return line_fields[5], line_fields[6], line_fields[8]
+
+
+def init_dataset_reader(task, args, tokenizer, log):
+    if task == 'MNLI':
+        return MNLIDatasetReader(args, tokenizer, log)
+    elif task == 'Conduct':
+        return ConductDatasetReader(args, tokenizer, log)
+    else:
+        log.error(f'Task {task} not supported yet')

@@ -10,7 +10,7 @@ def global_args():
     parser.add_argument('--val_batch_size', type=int, default=16)
     parser.add_argument('--clip_norm', type=float, default=1.0, help="Gradient clipping parameter")
     parser.add_argument('--epochs', type=int, default=8, help="Train epochs")
-    parser.add_argument('--max_seq_len', type=int, default=256, help="Max Sequence Length")
+    parser.add_argument('--max_seq_len', type=int, default=512, help="Max Sequence Length")
     parser.add_argument('--eval_per_epoch', action="store_true", default=True, help="Validates per epoch.")
     parser.add_argument('--min_acc_save', type=float, default=1.1, help='Min acc to save the trained model')
     parser.add_argument('--max_loss_save', type=float, default=-1, help='Max error value to save a model')
